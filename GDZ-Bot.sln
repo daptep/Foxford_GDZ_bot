@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36603.0 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GDZ-Bot", "GDZ-Bot\GDZ-Bot.csproj", "{3207AD16-2E75-4545-8AB7-C89901334142}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3207AD16-2E75-4545-8AB7-C89901334142}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3207AD16-2E75-4545-8AB7-C89901334142}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3207AD16-2E75-4545-8AB7-C89901334142}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3207AD16-2E75-4545-8AB7-C89901334142}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D2726CDC-F9DE-4021-8A05-E2A90BB7F2A9}
+	EndGlobalSection
+EndGlobal
