@@ -38,13 +38,13 @@ jobs:
         # Это заменяет ручной ввод "yes" при первом подключении
         ssh-keyscan -H -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
         
-    # НОВЫЙ ШАГ: Устанавливаем rsync
-    - name: Install rsync
-      run: sudo apt-get update && sudo apt-get install -y rsync
-
-    # 5. Копируем файлы на сервер (ручной rsync)
-    - name: Deploy to Server (rsync)
+    # 5. Устанавливаем rsync и СРАЗУ ЖЕ копируем файлы
+    - name: Install and Deploy (rsync)
       run: |
+        # 1. Сначала устанавливаем rsync
+        sudo apt-get update && sudo apt-get install -y rsync
+        
+        # 2. Сразу же его используем
         rsync -avz --delete \
           --exclude 'foxford_answers.db' \
           --exclude 'foxford_answers.db-wal' \
