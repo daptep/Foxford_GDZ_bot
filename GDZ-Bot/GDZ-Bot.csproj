@@ -12,16 +12,4 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0-rc.2.25502.107" />
     <PackageReference Include="Telegram.Bot" Version="22.7.5" />
   </ItemGroup>
-
-	<ItemGroup>
-		<Content Include="foxford_answers.db">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-		</Content>
-		<Content Include="task_images\**">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-		</Content>
-	</ItemGroup>
-
 </Project>

@@ -39,9 +39,14 @@ jobs:
         ssh-keyscan -H -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
         
     # 5. Копируем файлы на сервер (ручной rsync)
+    # 5. Копируем файлы на сервер (ручной rsync)
     - name: Deploy to Server (rsync)
       run: |
         rsync -avz --delete \
+          --exclude 'foxford_answers.db' \
+          --exclude 'foxford_answers.db-wal' \
+          --exclude 'foxford_answers.db-shm' \
+          --exclude 'task_images/' \
           -e "ssh -i ~/.ssh/id_gdz_bot -p ${{ secrets.SERVER_PORT }}" \
           ./publish/ \
           ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/gdz-bot
