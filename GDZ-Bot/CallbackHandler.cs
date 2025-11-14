@@ -1,12 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
-using System.Collections.Generic;
 
 namespace FoxfordAnswersBot
 {
@@ -32,7 +33,8 @@ namespace FoxfordAnswersBot
                                       $"📝 Заданий в базе: {stats.TotalTasks}\n" +
                                       $"📬 На модерации: <b>{stats.PendingTasks}</b>\n" +
                                       $"🕐 Последнее добавление: {stats.LastTaskAdded?.ToString("dd.MM.yyyy HH:mm") ?? "Нет данных"}\n" +
-                                      $"🔍 Последний запрос: {stats.LastTaskRequested?.ToString("dd.MM.yyyy HH:mm") ?? "Нет данных"}";
+                                      $"🔍 Последний запрос: {stats.LastTaskRequested?.ToString("dd.MM.yyyy HH:mm") ?? "Нет данных"}\n" +
+                                      $"🔢 Версия бота: {Program.CODE_VERSION}\n";
 
                     var keyboard = new InlineKeyboardMarkup(new[]
                                         {
@@ -41,8 +43,9 @@ namespace FoxfordAnswersBot
                         new[] { InlineKeyboardButton.WithCallbackData("🗑 Удалить задание", "admin_delete") },
                         new[] { InlineKeyboardButton.WithCallbackData("💾 Экспорт JSON", "admin_export") },
                         new[] { InlineKeyboardButton.WithCallbackData("📥 Импорт JSON", "admin_import") },
-                        new[] { InlineKeyboardButton.WithCallbackData("📥 Получить БД (.db)", "admin_get_db") },
+                        new[] { InlineKeyboardButton.WithCallbackData("💾 Экспорт БД (.db)", "admin_get_db") },
                         new[] { InlineKeyboardButton.WithCallbackData("📤 Заменить БД (.db)", "admin_replace_db") },
+                        new[] { InlineKeyboardButton.WithCallbackData("🗂 Скачать ZIP (скрины)", "admin_get_zip") },
                         new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", "back_main") }
                     });
 
@@ -321,6 +324,50 @@ namespace FoxfordAnswersBot
                         "Для подтверждения, пожалуйста, отправь в чат слово `foxford`",
                         parseMode: ParseMode.Html,
                         keyboard: new InlineKeyboardMarkup(InlineKeyboardButton.WithCallbackData("◀️ Отмена", "admin_panel")));
+                    return;
+                }
+
+                if (data == "admin_get_zip" && chatId == adminId)
+                {
+                    string imagesPath = DatabaseHelper.IMAGES_FOLDER;
+                    string zipPath = $"task_images_backup_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
+
+                    try
+                    {
+                        if (!Directory.Exists(imagesPath) || !Directory.EnumerateFiles(imagesPath).Any())
+                        {
+                            await bot.SendMessage(chatId, $"❌ Папка `{imagesPath}` пуста или не найдена.");
+                            return;
+                        }
+
+                        // Удаляем старый zip, если он вдруг остался
+                        if (System.IO.File.Exists(zipPath))
+                            System.IO.File.Delete(zipPath);
+
+                        await bot.SendMessage(chatId, "⏳ Начинаю архивацию... Это может занять несколько минут, если скриншотов много.");
+
+                        // Создаем архив (это может быть долго)
+                        ZipFile.CreateFromDirectory(imagesPath, zipPath);
+
+                        // Отправляем
+                        using (var stream = System.IO.File.OpenRead(zipPath))
+                        {
+                            await bot.SendDocument(chatId, new InputFileStream(stream, Path.GetFileName(zipPath)));
+                        }
+                        await bot.SendMessage(chatId, "✅ Архив со скриншотами отправлен.");
+                    }
+                    catch (Exception ex)
+                    {
+                        await bot.SendMessage(chatId, $"❌ Ошибка при создании архива: {ex.Message}");
+                    }
+                    finally
+                    {
+                        // Гарантированно удаляем временный ZIP-файл с сервера
+                        if (System.IO.File.Exists(zipPath))
+                        {
+                            try { System.IO.File.Delete(zipPath); } catch { }
+                        }
+                    }
                     return;
                 }
 

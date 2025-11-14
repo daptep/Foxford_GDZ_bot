@@ -10,7 +10,7 @@ namespace FoxfordAnswersBot
     public static class DatabaseHelper
     {
         public static string DB_PATH = "foxford_answers.db";
-        private static string IMAGES_FOLDER = "task_images";
+        public static string IMAGES_FOLDER = "task_images";
 
         // КРИТИЧНО: Пул подключений + WAL режим для параллельных операций
         private static readonly string ConnectionString = $"Data Source={DB_PATH};Mode=ReadWriteCreate;Cache=Shared;Pooling=True;";

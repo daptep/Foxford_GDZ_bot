@@ -375,8 +375,9 @@ https://foxford.ru/lessons/475003/tasks/301386
                 new[] { InlineKeyboardButton.WithCallbackData("🗑 Удалить задание", "admin_delete") },
                 new[] { InlineKeyboardButton.WithCallbackData("💾 Экспорт JSON", "admin_export") },
                 new[] { InlineKeyboardButton.WithCallbackData("📥 Импорт JSON", "admin_import") },
-                new[] { InlineKeyboardButton.WithCallbackData("📥 Получить БД (.db)", "admin_get_db") },
+                new[] { InlineKeyboardButton.WithCallbackData("💾 Экспорт БД (.db)", "admin_get_db") },
                 new[] { InlineKeyboardButton.WithCallbackData("📤 Заменить БД (.db)", "admin_replace_db") },
+                new[] { InlineKeyboardButton.WithCallbackData("🗂 Скачать ZIP (скрины)", "admin_get_zip") },
                 new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", "back_main") }
             });
 
