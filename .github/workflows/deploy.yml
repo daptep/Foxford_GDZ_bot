@@ -1,4 +1,4 @@
-name: Deploy GDZ-Bot
+name: Deploy GDZ-Bot (Manual)
 
 on:
   push:
@@ -10,11 +10,11 @@ jobs:
 
     steps:
     # 1. Получаем код из репозитория
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     # 2. Настраиваем .NET 8 (версия из вашего .csproj)
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
 
@@ -22,28 +22,38 @@ jobs:
     - name: Build & Publish
       run: dotnet publish -c Release -o ./publish
 
-    # 4. Копируем файлы на сервер (используем rsync для скорости)
+    # 4. Настраиваем SSH-ключ и Known Hosts (вручную)
+    - name: Setup SSH
+      run: |
+        # Создаем папку для ssh
+        mkdir -p ~/.ssh/
+        
+        # Записываем приватный ключ из секрета GitHub в файл
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_gdz_bot
+        
+        # Устанавливаем правильные права (ОЧЕНЬ ВАЖНО)
+        chmod 600 ~/.ssh/id_gdz_bot
+        
+        # Автоматически добавляем отпечаток сервера в known_hosts
+        # Это заменяет ручной ввод "yes" при первом подключении
+        ssh-keyscan -H -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+        
+    # 5. Копируем файлы на сервер (ручной rsync)
     - name: Deploy to Server (rsync)
-      uses: appleboy/rsync-action@v1.0.0
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: ${{ secrets.SERVER_PORT }}
-        source: ./publish/
-        target: /var/www/gdz-bot
-        options: -avz --delete
+      run: |
+        rsync -avz --delete \
+          -e "ssh -i ~/.ssh/id_gdz_bot -p ${{ secrets.SERVER_PORT }}" \
+          ./publish/ \
+          ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/gdz-bot
 
-    # 5. Перезапускаем службу на сервере
+    # 6. Перезапускаем службу на сервере (ручной ssh)
     - name: Restart Service
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: ${{ secrets.SERVER_PORT }}
-        script: |
-          echo "Restarting gdz-bot service..."
-          sudo systemctl restart gdz-bot
-          echo "Service restarted."
-          sudo systemctl status gdz-bot --no-pager
+      run: |
+        ssh -i ~/.ssh/id_gdz_bot -p ${{ secrets.SERVER_PORT }} \
+          ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+          "sudo systemctl restart gdz-bot && echo 'Service restarted.' && sudo systemctl status gdz-bot --no-pager"
+
+    # 7. Очистка (на всякий случай)
+    - name: Cleanup SSH Key
+      run: |
+        rm -f ~/.ssh/id_gdz_bot
