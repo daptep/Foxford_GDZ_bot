@@ -18,6 +18,8 @@ namespace FoxfordAnswersBot
         private static Dictionary<long, UserSubmissionState> userSubmissionStates = new Dictionary<long, UserSubmissionState>();
         private static Dictionary<long, UserSearchState> userStates = new Dictionary<long, UserSearchState>();
 
+        public static Dictionary<long, string> adminActionStates = new Dictionary<long, string>();
+
         // Список предметов (для кнопок)
         public static readonly List<string> SubjectsList = new List<string>
         {
@@ -74,6 +76,50 @@ namespace FoxfordAnswersBot
                     }
                 }
 
+                if (chatId == adminId && adminActionStates.ContainsKey(chatId))
+                {
+                    string state = adminActionStates[chatId];
+                    adminActionStates.Remove(chatId); // Сбрасываем состояние после 1-го сообщения
+
+                    // 1. Ожидание ID для УДАЛЕНИЯ
+                    if (state == "awaiting_delete_id")
+                    {
+                        if (int.TryParse(text, out int idToDelete))
+                        {
+                            if (DatabaseHelper.DeleteTask(idToDelete))
+                            {
+                                await bot.SendMessage(chatId, $"✅ Задание с ID {idToDelete} успешно удалено.");
+                            }
+                            else
+                            {
+                                await bot.SendMessage(chatId, $"❌ Задание с ID {idToDelete} не найдено.");
+                            }
+                        }
+                        else
+                        {
+                            await bot.SendMessage(chatId, "❌ Это не ID. Действие отменено.");
+                        }
+                        await ShowAdminPanel(bot, chatId); // Возвращаемся в админку
+                        return;
+                    }
+
+                    // 2. Ожидание подтверждения "foxford" для ЗАМЕНЫ БД
+                    if (state == "awaiting_db_replace_confirm_text")
+                    {
+                        if (text.Trim().ToLower() == "foxford")
+                        {
+                            adminActionStates[chatId] = "awaiting_db_file"; // Устанавливаем новое состояние
+                            await bot.SendMessage(chatId, "✅ Подтверждение получено. Теперь отправь мне файл `.db` для замены.");
+                        }
+                        else
+                        {
+                            await bot.SendMessage(chatId, "❌ Неверное слово. Замена БД отменена.");
+                            await ShowAdminPanel(bot, chatId);
+                        }
+                        return;
+                    }
+                }
+
                 // Команды для загрузки скриншотов
                 if (text == "/done")
                 {
@@ -112,6 +158,20 @@ namespace FoxfordAnswersBot
             if (message.Type == MessageType.Document && message.Document.FileName?.EndsWith(".json") == true && chatId == adminId)
             {
                 await HandleJsonImport(bot, chatId, message.Document);
+                return;
+            }
+
+            if (message.Type == MessageType.Document && message.Document.FileName?.EndsWith(".db") == true && chatId == adminId)
+            {
+                if (adminActionStates.ContainsKey(chatId) && adminActionStates[chatId] == "awaiting_db_file")
+                {
+                    adminActionStates.Remove(chatId); // Сбрасываем состояние
+                    await HandleDbUpload(bot, chatId, message.Document);
+                }
+                else
+                {
+                    await bot.SendMessage(chatId, "❌ Ты прислал файл `.db`, но я не ожидал его. Используй админ-панель для замены.");
+                }
                 return;
             }
 
@@ -305,19 +365,74 @@ https://foxford.ru/lessons/475003/tasks/301386
                               $"📝 Заданий в базе: {stats.TotalTasks}\n" +
                               $"📬 На модерации: <b>{stats.PendingTasks}</b>\n" +
                               $"🕐 Последнее добавление: {stats.LastTaskAdded?.ToString("dd.MM.yyyy HH:mm") ?? "Нет данных"}\n" +
-                              $"🔍 Последний запрос: {stats.LastTaskRequested?.ToString("dd.MM.yyyy HH:mm") ?? "Нет данных"}";
+                              $"🔍 Последний запрос: {stats.LastTaskRequested?.ToString("dd.MM.yyyy HH:mm") ?? "Нет данных"}\n" +
+                              $"🔢 Версия бота: {Program.CODE_VERSION}\n";
 
             var keyboard = new InlineKeyboardMarkup(new[]
-            {
+                        {
                 new[] { InlineKeyboardButton.WithCallbackData($"📬 Модерация ({stats.PendingTasks})", "admin_moderate") },
                 new[] { InlineKeyboardButton.WithCallbackData("➕ Добавить задание", "admin_add") },
                 new[] { InlineKeyboardButton.WithCallbackData("🗑 Удалить задание", "admin_delete") },
-                new[] { InlineKeyboardButton.WithCallbackData("💾 Экспорт БД", "admin_export") },
-                new[] { InlineKeyboardButton.WithCallbackData("📥 Импорт БД", "admin_import") },
+                new[] { InlineKeyboardButton.WithCallbackData("💾 Экспорт JSON", "admin_export") },
+                new[] { InlineKeyboardButton.WithCallbackData("📥 Импорт JSON", "admin_import") },
+                new[] { InlineKeyboardButton.WithCallbackData("📥 Получить БД (.db)", "admin_get_db") },
+                new[] { InlineKeyboardButton.WithCallbackData("📤 Заменить БД (.db)", "admin_replace_db") },
                 new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", "back_main") }
             });
 
             await bot.SendMessage(chatId, statsText, parseMode: ParseMode.Html, replyMarkup: keyboard);
+        }
+
+        // --- НОВЫЙ МЕТОД: Обработка загрузки БД (ИСПРАВЛЕН) ---
+        private static async Task HandleDbUpload(ITelegramBotClient bot, long chatId, Document document)
+        {
+            // Дополнительная проверка безопасности (на всякий случай)
+            if (string.IsNullOrEmpty(Program.BOT_TOKEN))
+            {
+                await bot.SendMessage(chatId, "❌ Ошибка конфигурации: Токен не найден. Загрузка отменена.");
+                return;
+            }
+
+            try
+            {
+                var file = await bot.GetFile(document.FileId);
+                string newDbPath = "foxford_answers.db.incoming"; // Сохраняем рядом с ботом
+
+                using (var stream = File.OpenWrite(newDbPath))
+                {
+                    await bot.DownloadFile(file.FilePath!, stream);
+                }
+
+                // --- ИСПРАВЛЕНИЕ: ParseMode.Html и тег <pre> ---
+                string warningMessage = $@"✅ Файл `.db` получен и сохранен как <code>{newDbPath}</code>.
+
+⚠️ <b>ДЕЙСТВИЯ ВРУЧНУЮ:</b>
+Я не могу применить его автоматически, пока я запущен (файл БД заблокирован).
+
+<b>Чтобы применить новую БД, подключись к серверу по SSH и выполни:</b>
+(Предполагается, что бот в папке /var/www/gdz-bot)
+
+<pre>
+# 1. Остановить бота
+sudo systemctl stop gdz-bot
+
+# 2. Заменить старую БД новой (сделай бэкап, если нужно!)
+mv /var/www/gdz-bot/foxford_answers.db.incoming /var/www/gdz-bot/foxford_answers.db
+
+# 3. Вернуть права (если нужно)
+sudo chown www-data:www-data /var/www/gdz-bot/foxford_answers.db
+
+# 4. Запустить бота
+sudo systemctl start gdz-bot
+</pre>";
+
+                await bot.SendMessage(chatId, warningMessage, ParseMode.Html); // <-- ИЗМЕНЕНО
+            }
+            catch (Exception ex)
+            {
+                await bot.SendMessage(chatId, $"❌ Ошибка загрузки файла: {ex.Message}");
+            }
+            await ShowAdminPanel(bot, chatId);
         }
 
         #region Логика состояний (Админ)

@@ -11,8 +11,9 @@ namespace FoxfordAnswersBot
     class Program
     {
         // Убедись, что токен и ID здесь правильные, или ты читаешь их из файла
-        private static string BOT_TOKEN = "8558881398:AAGvC6haknvCSqq4siPbdavp1g5_xUsOUyY";
-        private static long ADMIN_ID = 1283430447;
+        public static string BOT_TOKEN = "8558881398:AAGvC6haknvCSqq4siPbdavp1g5_xUsOUyY";
+        public static long ADMIN_ID = 1283430447;
+        public static string CODE_VERSION = "0.1.43";
 
         private static TelegramBotClient? botClient;
 
@@ -28,7 +29,7 @@ namespace FoxfordAnswersBot
             Console.WriteLine($"✅ Бот запущен: @{me.Username}\n");
             Console.WriteLine($"👤 Админ ID: {ADMIN_ID}");
             Console.WriteLine($"📊 Заданий в базе: {DatabaseHelper.GetTotalTasksCount()}\n");
-            Console.WriteLine($"🔢 Версия бота: 0.1.41\n");
+            Console.WriteLine($"🔢 Версия бота: {CODE_VERSION}\n");
             // --- УДАЛЯЕМ СТРОКУ ПРО CTRL+C ---
             // Console.WriteLine("Бот работает. Нажми Ctrl+C для остановки.\n");
 

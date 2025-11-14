@@ -35,12 +35,14 @@ namespace FoxfordAnswersBot
                                       $"🔍 Последний запрос: {stats.LastTaskRequested?.ToString("dd.MM.yyyy HH:mm") ?? "Нет данных"}";
 
                     var keyboard = new InlineKeyboardMarkup(new[]
-                    {
+                                        {
                         new[] { InlineKeyboardButton.WithCallbackData($"📬 Модерация ({stats.PendingTasks})", "admin_moderate") },
                         new[] { InlineKeyboardButton.WithCallbackData("➕ Добавить задание", "admin_add") },
                         new[] { InlineKeyboardButton.WithCallbackData("🗑 Удалить задание", "admin_delete") },
-                        new[] { InlineKeyboardButton.WithCallbackData("💾 Экспорт БД", "admin_export") },
-                        new[] { InlineKeyboardButton.WithCallbackData("📥 Импорт БД", "admin_import") },
+                        new[] { InlineKeyboardButton.WithCallbackData("💾 Экспорт JSON", "admin_export") },
+                        new[] { InlineKeyboardButton.WithCallbackData("📥 Импорт JSON", "admin_import") },
+                        new[] { InlineKeyboardButton.WithCallbackData("📥 Получить БД (.db)", "admin_get_db") },
+                        new[] { InlineKeyboardButton.WithCallbackData("📤 Заменить БД (.db)", "admin_replace_db") },
                         new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", "back_main") }
                     });
 
@@ -279,9 +281,46 @@ namespace FoxfordAnswersBot
                 }
                 if (data == "admin_delete" && chatId == adminId)
                 {
+                    // Устанавливаем состояние ожидания ID
+                    MessageHandler.adminActionStates[chatId] = "awaiting_delete_id";
                     await EditMessageTextSafe(bot, chatId, messageId,
-                        "🗑 <b>Удаление задания</b>\n\nОтправь ID задания для удаления\n\n(ID можно посмотреть в экспорте БД)",
-                        parseMode: ParseMode.Html);
+                        "🗑 <b>Удаление задания</b>\n\n" +
+                        "Отправь ID задания, которое нужно удалить.\n\n" +
+                        "(ID можно увидеть при поиске задания)",
+                        parseMode: ParseMode.Html,
+                        keyboard: new InlineKeyboardMarkup(InlineKeyboardButton.WithCallbackData("◀️ Отмена", "admin_panel")));
+                    return;
+                }
+
+                if (data == "admin_get_db" && chatId == adminId)
+                {
+                    if (!System.IO.File.Exists(DatabaseHelper.DB_PATH))
+                    {
+                        await bot.SendMessage(chatId, "❌ Файл базы данных не найден.");
+                        return;
+                    }
+                    try
+                    {
+                        using var stream = System.IO.File.OpenRead(DatabaseHelper.DB_PATH);
+                        await bot.SendDocument(chatId, new InputFileStream(stream, DatabaseHelper.DB_PATH));
+                        await bot.SendMessage(chatId, "✅ Файл базы данных отправлен.");
+                    }
+                    catch (Exception ex)
+                    {
+                        await bot.SendMessage(chatId, $"❌ Ошибка: {ex.Message}");
+                    }
+                    return;
+                }
+                if (data == "admin_replace_db" && chatId == adminId)
+                {
+                    // Устанавливаем состояние ожидания подтверждения
+                    MessageHandler.adminActionStates[chatId] = "awaiting_db_replace_confirm_text";
+                    await EditMessageTextSafe(bot, chatId, messageId,
+                        "⚠️ <b>ЗАМЕНА БАЗЫ ДАННЫХ</b> ⚠️\n\n" +
+                        "Это опасное действие, которое приведет к полной замене всех данных.\n\n" +
+                        "Для подтверждения, пожалуйста, отправь в чат слово `foxford`",
+                        parseMode: ParseMode.Html,
+                        keyboard: new InlineKeyboardMarkup(InlineKeyboardButton.WithCallbackData("◀️ Отмена", "admin_panel")));
                     return;
                 }
 
@@ -779,6 +818,11 @@ https://foxford.ru/lessons/475003/tasks/301386";
             string header = $"✅ <b>Найден ответ!</b>\n\n" +
                            $"📚 {task.Grade} класс | {task.Subject}" + MessageHandler.GetLevelTypeName(task.LevelType) + "\n" +
                            $"📖 {MessageHandler.GetGroupTypeName(task.GroupType)}";
+
+            if (chatId == Program.ADMIN_ID)
+            {
+                header += $"\n<b>🆔 ID Задания: {task.Id}</b> (для админки)\n";
+            }
 
             if (task.GroupType == TaskGroupType.Demo)
                 header += $" | Полугодие {task.Semester}";
