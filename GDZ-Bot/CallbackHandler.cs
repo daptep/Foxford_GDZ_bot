@@ -8,6 +8,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using Ionic.Zip;
 
 namespace FoxfordAnswersBot
 {
@@ -330,7 +331,13 @@ namespace FoxfordAnswersBot
                 if (data == "admin_get_zip" && chatId == adminId)
                 {
                     string imagesPath = DatabaseHelper.IMAGES_FOLDER;
-                    string zipPath = $"task_images_backup_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
+
+                    // Временный базовый путь для архива
+                    string archiveBaseName = $"task_images_backup_{DateTime.Now:yyyyMMdd_HHmmss}";
+                    string tempDir = Path.GetTempPath(); // Используем временную папку ОС
+                    string archivePath = Path.Combine(tempDir, archiveBaseName + ".zip");
+
+                    List<string> createdZipFiles = new List<string>();
 
                     try
                     {
@@ -340,21 +347,48 @@ namespace FoxfordAnswersBot
                             return;
                         }
 
-                        // Удаляем старый zip, если он вдруг остался
-                        if (System.IO.File.Exists(zipPath))
-                            System.IO.File.Delete(zipPath);
-
                         await bot.SendMessage(chatId, "⏳ Начинаю архивацию... Это может занять несколько минут, если скриншотов много.");
 
-                        // Создаем архив (это может быть долго)
-                        ZipFile.CreateFromDirectory(imagesPath, zipPath);
-
-                        // Отправляем
-                        using (var stream = System.IO.File.OpenRead(zipPath))
+                        // 1. Создаем архив в отдельном потоке
+                        await Task.Run(() =>
                         {
-                            await bot.SendDocument(chatId, new InputFileStream(stream, Path.GetFileName(zipPath)));
+                            using (Ionic.Zip.ZipFile zip = new Ionic.Zip.ZipFile())
+                            {
+                                // Используем Zip64 для поддержки больших архивов
+                                zip.UseZip64WhenSaving = Zip64Option.AsNecessary;
+                                // Добавляем папку task_images ВНУТРЬ архива
+                                zip.AddDirectory(imagesPath, "task_images");
+
+                                // --- ГЛАВНОЕ: Устанавливаем лимит 45 МБ ---
+                                // (45 * 1024 * 1024 = 47,185,920 байт)
+                                zip.MaxOutputSegmentSize = 45 * 1024 * 1024;
+
+                                zip.Save(archivePath); // Библиотека сама создаст .z01, .z02 и т.д.
+                            }
+                        });
+
+                        // 2. Находим все созданные части
+                        // DotNetZip создает .zip, .z01, .z02...
+                        createdZipFiles = Directory.EnumerateFiles(tempDir, $"{archiveBaseName}.*")
+                                                    .OrderBy(f => f) // Сортируем, чтобы .zip был первым
+                                                    .ToList();
+
+                        if (createdZipFiles.Count == 0)
+                        {
+                            throw new Exception("Архив не был создан.");
                         }
-                        await bot.SendMessage(chatId, "✅ Архив со скриншотами отправлен.");
+
+                        await bot.SendMessage(chatId, $"✅ Готово! Отправляю {createdZipFiles.Count} частей архива...");
+
+                        // 3. Отправляем все части по очереди
+                        foreach (var file in createdZipFiles)
+                        {
+                            await using (var stream = System.IO.File.OpenRead(file))
+                            {
+                                // Отправляем файл
+                                await bot.SendDocument(chatId, new InputFileStream(stream, Path.GetFileName(file)));
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -362,10 +396,13 @@ namespace FoxfordAnswersBot
                     }
                     finally
                     {
-                        // Гарантированно удаляем временный ZIP-файл с сервера
-                        if (System.IO.File.Exists(zipPath))
+                        // 4. Гарантированно удаляем все временные ZIP-файлы
+                        foreach (var file in createdZipFiles)
                         {
-                            try { System.IO.File.Delete(zipPath); } catch { }
+                            if (System.IO.File.Exists(file))
+                            {
+                                try { System.IO.File.Delete(file); } catch { }
+                            }
                         }
                     }
                     return;
