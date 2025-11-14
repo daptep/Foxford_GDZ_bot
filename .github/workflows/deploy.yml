@@ -38,14 +38,11 @@ jobs:
         # Это заменяет ручной ввод "yes" при первом подключении
         ssh-keyscan -H -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
         
-    # 5. Устанавливаем rsync и СРАЗУ ЖЕ копируем файлы
-    - name: Install and Deploy (rsync)
+    # 5. Копируем файлы на сервер (rsync)
+    - name: Deploy to Server (rsync)
       run: |
-        # 1. Сначала устанавливаем rsync
-        sudo apt-get update && sudo apt-get install -y rsync
-        
-        # 2. Вызываем rsync по ПОЛНОМУ ПУТИ, чтобы обойти кэш PATH
-        /usr/bin/rsync -avz --delete \
+        # Теперь rsync на сборщике найдет rsync на сервере
+        rsync -avz --delete \
           --exclude 'foxford_answers.db' \
           --exclude 'foxford_answers.db-wal' \
           --exclude 'foxford_answers.db-shm' \
