@@ -28,6 +28,7 @@ namespace FoxfordAnswersBot
             Console.WriteLine($"✅ Бот запущен: @{me.Username}\n");
             Console.WriteLine($"👤 Админ ID: {ADMIN_ID}");
             Console.WriteLine($"📊 Заданий в базе: {DatabaseHelper.GetTotalTasksCount()}\n");
+            Console.WriteLine($"🔢 Версия бота: 0.1.41\n");
             // --- УДАЛЯЕМ СТРОКУ ПРО CTRL+C ---
             // Console.WriteLine("Бот работает. Нажми Ctrl+C для остановки.\n");
 
