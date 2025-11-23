@@ -596,12 +596,25 @@ namespace FoxfordAnswersBot
                     var tasks = DatabaseHelper.SearchTasks(state.Grade, state.Subject, state.LevelType, state.GroupType,
                                                             null, semester);
 
-                    var buttons = tasks.OrderBy(t => t.TaskOrder).Select(t => new[] {
-                        InlineKeyboardButton.WithCallbackData($"Задание №{t.TaskOrder}", $"show_task_{t.Id}")
-                    }).ToList();
-                    buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_group_{(int)state.GroupType!.Value}") });
+                    if (state.GroupType == TaskGroupType.ControlWork)
+                    {
+                        var buttons = taskOrders.Select(to => new[] {
+                            InlineKeyboardButton.WithCallbackData($"Задание №{to}", $"search_taskorder_{to}")
+                        }).ToList();
+                        buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_group_{(int)state.GroupType!.Value}") });
 
-                    await EditMessageTextSafe(bot, chatId, messageId, $"✅ Найдено заданий: {tasks.Count}\n\nВыбери нужное:", new InlineKeyboardMarkup(buttons));
+                        await EditMessageTextSafe(bot, chatId, messageId, $"✅ Найдено заданий: {tasks.Count}\n\nВыбери нужное:", new InlineKeyboardMarkup(buttons));
+                    }
+                    else
+                    {
+                        var buttons = tasks.OrderBy(t => t.TaskOrder).Select(t => new[] {
+                            InlineKeyboardButton.WithCallbackData($"Задание №{t.TaskOrder}", $"show_task_{t.Id}")
+                        }).ToList();
+                        buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_group_{(int)state.GroupType!.Value}") });
+
+                        await EditMessageTextSafe(bot, chatId, messageId, $"✅ Найдено заданий: {tasks.Count}\n\nВыбери нужное:", new InlineKeyboardMarkup(buttons));
+                    }
+
                     return;
                 }
 
@@ -615,8 +628,8 @@ namespace FoxfordAnswersBot
 
                     var keyboardBack = new InlineKeyboardMarkup(new[] { new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_group_{(int)state.GroupType!.Value}") } });
 
-                    // --- Логика для КР/ПР (показываем список Номеров Заданий) ---
-                    if (state.GroupType == TaskGroupType.ControlWork || state.GroupType == TaskGroupType.Test)
+                    // --- Логика для ПР (показываем список Номеров Заданий) ---
+                    if (state.GroupType == TaskGroupType.Test)
                     {
                         var taskOrders = DatabaseHelper.GetTaskOrders(state.Grade!.Value, state.Subject!,
                             state.LevelType!.Value, state.GroupType!.Value, lessonOrder, null);
@@ -907,7 +920,7 @@ https://foxford.ru/lessons/475003/tasks/301386";
                 header += $"\n<b>🆔 ID Задания: {task.Id}</b> (для админки)\n";
             }
 
-            if (task.GroupType == TaskGroupType.Demo)
+            if (task.GroupType == TaskGroupType.Demo || task.GroupType == TaskGroupType.ControlWork)
                 header += $" | Полугодие {task.Semester}";
             else if (task.LessonOrder.HasValue)
                 header += $" | Урок №{task.LessonOrder}";
@@ -990,7 +1003,7 @@ https://foxford.ru/lessons/475003/tasks/301386";
                     navigationButtons.Add(InlineKeyboardButton.WithCallbackData("◀️ Пред. Вар.", $"search_variant_{allVariants[currentVariantIndex - 1]}"));
 
                 // Кнопка "К Списку" (возврат к списку заданий)
-                navigationButtons.Add(InlineKeyboardButton.WithCallbackData("📋 К списку", $"search_lesson_{task.LessonOrder}"));
+                navigationButtons.Add(InlineKeyboardButton.WithCallbackData("📋 К списку", $"search_semester_{task.Semester}"));
 
                 // Кнопка "След. Вариант"
                 if (currentVariantIndex < allVariants.Count - 1)

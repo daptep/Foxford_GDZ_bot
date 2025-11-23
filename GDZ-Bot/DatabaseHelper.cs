@@ -316,7 +316,7 @@ namespace FoxfordAnswersBot
             }
 
             if (groupType.HasValue) conditions.Add($"GroupType = {(int)groupType.Value}");
-            if (lessonOrder.HasValue) conditions.Add($"LessonOrder = {lessonOrder.Value}");
+            if (lessonOrder.HasValue || !semester.HasValue) conditions.Add($"LessonOrder = {lessonOrder.Value}");
             if (semester.HasValue) conditions.Add($"Semester = {semester.Value}");
             if (taskOrder.HasValue) conditions.Add($"TaskOrder = {taskOrder.Value}");
             if (variant.HasValue) conditions.Add($"Variant = {variant.Value}");
