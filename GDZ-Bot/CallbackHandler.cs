@@ -165,7 +165,20 @@ namespace FoxfordAnswersBot
                 {
                     string subject = data.Replace("admin_subj_", "");
                     MessageHandler.SetSubject(chatId, subject);
-                    await AskLevelType(bot, chatId, messageId, "admin_level_");
+
+                    // --- ИЗМЕНЕНИЕ 1: Проверка на предметы только с обычным уровнем ---
+                    if (subject == "Вероятность и статистика" || subject == "ОБЗР" || subject == "Физкультура")
+                    {
+                        // Автоматически ставим "Обычный" и пропускаем меню выбора уровня
+                        MessageHandler.SetLevelType(chatId, TaskLevelType.Regular);
+                        await AskGroupType(bot, chatId, messageId, "admin_group_");
+                    }
+                    else
+                    {
+                        // Для остальных показываем выбор уровня
+                        await AskLevelType(bot, chatId, messageId, "admin_level_");
+                    }
+                    // ------------------------------------------------------------------
                     return;
                 }
 
@@ -215,7 +228,18 @@ namespace FoxfordAnswersBot
                 {
                     string subject = data.Replace("user_subj_", "");
                     MessageHandler.SetSubject(chatId, subject);
-                    await AskLevelType(bot, chatId, messageId, "user_level_");
+
+                    // --- ИЗМЕНЕНИЕ 1: То же самое для пользователя ---
+                    if (subject == "Вероятность и статистика" || subject == "ОБЗР" || subject == "Физкультура")
+                    {
+                        MessageHandler.SetLevelType(chatId, TaskLevelType.Regular);
+                        await AskGroupType(bot, chatId, messageId, "user_group_");
+                    }
+                    else
+                    {
+                        await AskLevelType(bot, chatId, messageId, "user_level_");
+                    }
+                    // ------------------------------------------------------------------
                     return;
                 }
 

@@ -119,9 +119,32 @@ namespace FoxfordAnswersBot
                 // OK
             }
 
-            // TODO: Требуется ручная миграция для изменения LessonOrder NOT NULL -> NULL,
-            // если база уже была заполнена.
-            // В текущей схеме createTableQuery колонка LessonOrder уже nullable (INTEGER)
+            try
+            {
+                // GroupType 3 = ControlWork
+                // Логика: Если это КР, и у неё LessonOrder 1 или 2, а Semester пустой -> переносим в Semester
+                string migrationQuery = @"
+            UPDATE Tasks
+            SET Semester = LessonOrder,
+                LessonOrder = NULL
+            WHERE GroupType = 3
+              AND (LessonOrder = 1 OR LessonOrder = 2)
+              AND (Semester IS NULL OR Semester = 0)";
+
+                using (var cmd = new SqliteCommand(migrationQuery, conn))
+                {
+                    int rows = cmd.ExecuteNonQuery();
+                    if (rows > 0)
+                    {
+                        Console.WriteLine($"DB: Выполнена миграция контрольных работ. Обновлено записей: {rows}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"DB Warning: Ошибка при миграции контрольных: {ex.Message}");
+            }
+            // -------------------------------------------------------------
 
             using var initCmd = new SqliteCommand("INSERT OR IGNORE INTO Statistics (Id) VALUES (1)", conn);
             initCmd.ExecuteNonQuery();
