@@ -121,28 +121,22 @@ namespace FoxfordAnswersBot
 
             try
             {
-                // GroupType 3 = ControlWork
-                // Логика: Если это КР, и у неё LessonOrder 1 или 2, а Semester пустой -> переносим в Semester
-                string migrationQuery = @"
-            UPDATE Tasks
-            SET Semester = LessonOrder,
-                LessonOrder = NULL
-            WHERE GroupType = 3
-              AND (LessonOrder = 1 OR LessonOrder = 2)
-              AND (Semester IS NULL OR Semester = 0)";
-
-                using (var cmd = new SqliteCommand(migrationQuery, conn))
+                // Проверяем, есть ли записи для миграции
+                using (var checkCmd = new SqliteCommand(
+                    "SELECT COUNT(*) FROM Tasks WHERE GroupType = 3 AND (LessonOrder = 1 OR LessonOrder = 2) AND (Semester IS NULL OR Semester = 0)",
+                    conn))
                 {
-                    int rows = cmd.ExecuteNonQuery();
-                    if (rows > 0)
+                    var count = Convert.ToInt32(checkCmd.ExecuteScalar());
+
+                    if (count > 0)
                     {
-                        Console.WriteLine($"DB: Выполнена миграция контрольных работ. Обновлено записей: {rows}");
+                        Console.WriteLine($"DB: Найдено {count} записей для миграции контрольных работ. Пропускаем миграцию (выполните вручную).");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"DB Warning: Ошибка при миграции контрольных: {ex.Message}");
+                Console.WriteLine($"DB Warning: {ex.Message}");
             }
             // -------------------------------------------------------------
 
