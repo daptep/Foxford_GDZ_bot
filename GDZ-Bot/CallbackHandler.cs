@@ -923,8 +923,8 @@ https://foxford.ru/lessons/475003/tasks/301386";
             // --- 2. Формируем Кнопки Навигации ---
             var navigationButtons = new List<InlineKeyboardButton>();
 
-            // --- 2.1 Логика для КР / ПР (Навигация по Вариантам и Заданиям) ---
-            if (task.GroupType == TaskGroupType.ControlWork || task.GroupType == TaskGroupType.Test)
+            // --- 2.1 Логика для ПР (Навигация по Вариантам и Заданиям) ---
+            if (task.GroupType == TaskGroupType.Test)
             {
                 // Получаем все Задания этого Урока
                 var allTaskOrders = DatabaseHelper.GetTaskOrders(task.Grade, task.Subject, task.LevelType, task.GroupType, task.LessonOrder, null);
@@ -953,8 +953,8 @@ https://foxford.ru/lessons/475003/tasks/301386";
                 if (currentTaskOrderIndex < allTaskOrders.Count - 1)
                     navigationButtons.Add(InlineKeyboardButton.WithCallbackData("➡️ След. Зад.", $"search_taskorder_{allTaskOrders[currentTaskOrderIndex + 1]}"));
             }
-            // --- 2.2 Логика для Демо (Навигация по Заданиям) ---
-            else if (task.GroupType == TaskGroupType.Demo)
+            // --- 2.2 Логика для Демо и КР (Навигация по Заданиям) ---
+            else if (task.GroupType == TaskGroupType.ControlWork || task.GroupType == TaskGroupType.Demo)
             {
                 var allTasks = DatabaseHelper.SearchTasks(task.Grade, task.Subject, task.LevelType, task.GroupType, null, task.Semester).OrderBy(t => t.TaskOrder).ToList();
                 int currentIndex = allTasks.FindIndex(t => t.Id == taskId);
