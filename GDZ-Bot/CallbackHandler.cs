@@ -182,7 +182,7 @@ namespace FoxfordAnswersBot
                     var type = (TaskGroupType)int.Parse(data.Replace("admin_group_", ""));
                     MessageHandler.SetGroupType(chatId, type);
 
-                    if (type == TaskGroupType.Demo || type == TaskGroupType.ControlWork)
+                    if (type == TaskGroupType.Demo)
                     {
                         await EditMessageTextSafe(bot, chatId, messageId, "🔢 Введи полугодие (1 или 2):");
                     }
@@ -232,7 +232,7 @@ namespace FoxfordAnswersBot
                     var type = (TaskGroupType)int.Parse(data.Replace("user_group_", ""));
                     MessageHandler.SetGroupType(chatId, type);
 
-                    if (type == TaskGroupType.Demo || type == TaskGroupType.ControlWork)
+                    if (type == TaskGroupType.Demo)
                     {
                         await EditMessageTextSafe(bot, chatId, messageId, "🔢 Введи полугодие (1 или 2):");
                     }
@@ -537,7 +537,7 @@ namespace FoxfordAnswersBot
                     var keyboardBack = new InlineKeyboardMarkup(new[] { new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_level_{(int)state.LevelType!.Value}") } });
 
                     // --- Логика для ДЕМО ---
-                    if (type == TaskGroupType.Demo || type == TaskGroupType.ControlWork)
+                    if (type == TaskGroupType.Demo)
                     {
                         var semesters = DatabaseHelper.GetSemesters(state.Grade!.Value, state.Subject!, state.LevelType!.Value);
                         if (semesters.Count == 0)
@@ -553,7 +553,7 @@ namespace FoxfordAnswersBot
 
                         await EditMessageTextSafe(bot, chatId, messageId, "📖 Выбери полугодие:", new InlineKeyboardMarkup(buttons));
                     }
-                    // --- Логика для Остальных (ДЗ, ПР, Теория) ---
+                    // --- Логика для Остальных (ДЗ, КР, ПР, Теория) ---
                     else
                     {
                         var lessons = DatabaseHelper.GetLessonOrders(state.Grade!.Value, state.Subject!, state.LevelType!.Value, type);
@@ -593,28 +593,16 @@ namespace FoxfordAnswersBot
                         return;
                     }
 
+                    // Для Демо сразу показываем ответы
                     var tasks = DatabaseHelper.SearchTasks(state.Grade, state.Subject, state.LevelType, state.GroupType,
                                                             null, semester);
 
-                    if (state.GroupType == TaskGroupType.ControlWork)
-                    {
-                        var buttons = taskOrders.Select(to => new[] {
-                            InlineKeyboardButton.WithCallbackData($"Задание №{to}", $"search_taskorder_{to}")
-                        }).ToList();
-                        buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_group_{(int)state.GroupType!.Value}") });
+                    var buttons = tasks.OrderBy(t => t.TaskOrder).Select(t => new[] {
+                        InlineKeyboardButton.WithCallbackData($"Задание №{t.TaskOrder}", $"show_task_{t.Id}")
+                    }).ToList();
+                    buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_group_{(int)state.GroupType!.Value}") });
 
-                        await EditMessageTextSafe(bot, chatId, messageId, $"✅ Найдено заданий: {tasks.Count}\n\nВыбери нужное:", new InlineKeyboardMarkup(buttons));
-                    }
-                    else
-                    {
-                        var buttons = tasks.OrderBy(t => t.TaskOrder).Select(t => new[] {
-                            InlineKeyboardButton.WithCallbackData($"Задание №{t.TaskOrder}", $"show_task_{t.Id}")
-                        }).ToList();
-                        buttons.Add(new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_group_{(int)state.GroupType!.Value}") });
-
-                        await EditMessageTextSafe(bot, chatId, messageId, $"✅ Найдено заданий: {tasks.Count}\n\nВыбери нужное:", new InlineKeyboardMarkup(buttons));
-                    }
-
+                    await EditMessageTextSafe(bot, chatId, messageId, $"✅ Найдено заданий: {tasks.Count}\n\nВыбери нужное:", new InlineKeyboardMarkup(buttons));
                     return;
                 }
 
@@ -628,8 +616,8 @@ namespace FoxfordAnswersBot
 
                     var keyboardBack = new InlineKeyboardMarkup(new[] { new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_group_{(int)state.GroupType!.Value}") } });
 
-                    // --- Логика для ПР (показываем список Номеров Заданий) ---
-                    if (state.GroupType == TaskGroupType.Test)
+                    // --- Логика для КР/ПР (показываем список Номеров Заданий) ---
+                    if (state.GroupType == TaskGroupType.ControlWork || state.GroupType == TaskGroupType.Test)
                     {
                         var taskOrders = DatabaseHelper.GetTaskOrders(state.Grade!.Value, state.Subject!,
                             state.LevelType!.Value, state.GroupType!.Value, lessonOrder, null);
@@ -727,7 +715,7 @@ namespace FoxfordAnswersBot
                     state.Variant = null;
 
                     var variants = DatabaseHelper.GetVariants(state.Grade!.Value, state.Subject!,
-                        state.LevelType!.Value, state.GroupType!.Value, state.LessonOrder!.Value, null, taskOrder);
+                        state.LevelType!.Value, state.GroupType!.Value, state.LessonOrder!.Value, taskOrder);
 
                     var keyboardBack = new InlineKeyboardMarkup(new[] { new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_lesson_{state.LessonOrder}") } });
 
@@ -920,7 +908,7 @@ https://foxford.ru/lessons/475003/tasks/301386";
                 header += $"\n<b>🆔 ID Задания: {task.Id}</b> (для админки)\n";
             }
 
-            if (task.GroupType == TaskGroupType.Demo || task.GroupType == TaskGroupType.ControlWork)
+            if (task.GroupType == TaskGroupType.Demo)
                 header += $" | Полугодие {task.Semester}";
             else if (task.LessonOrder.HasValue)
                 header += $" | Урок №{task.LessonOrder}";
@@ -936,13 +924,13 @@ https://foxford.ru/lessons/475003/tasks/301386";
             // --- 2. Формируем Кнопки Навигации ---
             var navigationButtons = new List<InlineKeyboardButton>();
 
-            // --- 2.1 Логика для ПР (Навигация по Вариантам и Заданиям) ---
-            if (task.GroupType == TaskGroupType.Test)
+            // --- 2.1 Логика для КР / ПР (Навигация по Вариантам и Заданиям) ---
+            if (task.GroupType == TaskGroupType.ControlWork || task.GroupType == TaskGroupType.Test)
             {
                 // Получаем все Задания этого Урока
                 var allTaskOrders = DatabaseHelper.GetTaskOrders(task.Grade, task.Subject, task.LevelType, task.GroupType, task.LessonOrder, null);
                 // Получаем все Варианты этого Задания
-                var allVariants = DatabaseHelper.GetVariants(task.Grade, task.Subject, task.LevelType, task.GroupType, task.LessonOrder!.Value, null, task.TaskOrder!.Value);
+                var allVariants = DatabaseHelper.GetVariants(task.Grade, task.Subject, task.LevelType, task.GroupType, task.LessonOrder!.Value, task.TaskOrder!.Value);
 
                 int currentTaskOrderIndex = allTaskOrders.IndexOf(task.TaskOrder!.Value);
                 int currentVariantIndex = allVariants.IndexOf(task.Variant!.Value);
@@ -981,36 +969,6 @@ https://foxford.ru/lessons/475003/tasks/301386";
 
                 if (currentIndex < allTasks.Count - 1)
                     navigationButtons.Add(InlineKeyboardButton.WithCallbackData("➡️ Дальше", $"show_task_{allTasks[currentIndex + 1].Id}"));
-            }
-            // --- 2.2 Логика для КР (Навигация по Заданиям) ---
-            else if (task.GroupType == TaskGroupType.ControlWork)
-            {
-                // Получаем все Задания этого Урока
-                var allTaskOrders = DatabaseHelper.GetTaskOrders(task.Grade, task.Subject, task.LevelType, task.GroupType, null, task.Semester);
-                // Получаем все Варианты этого Задания
-                var allVariants = DatabaseHelper.GetVariants(task.Grade, task.Subject, task.LevelType, task.GroupType, null, task.Semester, task.TaskOrder!.Value);
-
-                int currentTaskOrderIndex = allTaskOrders.IndexOf(task.TaskOrder!.Value);
-                int currentVariantIndex = allVariants.IndexOf(task.Variant!.Value);
-
-                header += $"\n📊 Задание {currentTaskOrderIndex + 1} из {allTaskOrders.Count} | Вариант {currentVariantIndex + 1} из {allVariants.Count}";
-
-                // Кнопка "Пред. Задание"
-                if (currentTaskOrderIndex > 0)
-                    navigationButtons.Add(InlineKeyboardButton.WithCallbackData("⬅️ Пред. Зад.", $"search_taskorder_{allTaskOrders[currentTaskOrderIndex - 1]}"));
-                // Кнопка "Пред. Вариант"
-                if (currentVariantIndex > 0)
-                    navigationButtons.Add(InlineKeyboardButton.WithCallbackData("◀️ Пред. Вар.", $"search_variant_{allVariants[currentVariantIndex - 1]}"));
-
-                // Кнопка "К Списку" (возврат к списку заданий)
-                navigationButtons.Add(InlineKeyboardButton.WithCallbackData("📋 К списку", $"search_semester_{task.Semester}"));
-
-                // Кнопка "След. Вариант"
-                if (currentVariantIndex < allVariants.Count - 1)
-                    navigationButtons.Add(InlineKeyboardButton.WithCallbackData("▶️ След. Вар.", $"search_variant_{allVariants[currentVariantIndex + 1]}"));
-                // Кнопка "След. Задание"
-                if (currentTaskOrderIndex < allTaskOrders.Count - 1)
-                    navigationButtons.Add(InlineKeyboardButton.WithCallbackData("➡️ След. Зад.", $"search_taskorder_{allTaskOrders[currentTaskOrderIndex + 1]}"));
             }
             // --- 2.3 Логика для ДЗ / Теории (Навигация по Заданиям и Урокам) ---
             else
