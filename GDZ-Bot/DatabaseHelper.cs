@@ -383,7 +383,7 @@ namespace FoxfordAnswersBot
                 levelType = TaskLevelType.Regular;
             }
 
-            string where = $"WHERE Grade = {grade} AND Subject = '{subject.Replace("'", "''")}' AND LevelType = {(int)levelType} AND GroupType = {(int)TaskGroupType.Demo} AND IsModerated = 1";
+            string where = $"WHERE Grade = {grade} AND Subject = '{subject.Replace("'", "''")}' AND LevelType = {(int)levelType} AND GroupType IN ({(int)TaskGroupType.Demo}, {(int)TaskGroupType.ControlWork}) AND IsModerated = 1";
             return GetDistinctValues<int>("Semester", where);
         }
 
