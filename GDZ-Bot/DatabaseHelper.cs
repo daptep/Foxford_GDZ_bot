@@ -119,45 +119,9 @@ namespace FoxfordAnswersBot
                 // OK
             }
 
-            try
-            {
-                // GroupType 3 = ControlWork
-                // Логика: Если это КР, и у неё LessonOrder 1 или 2, а Semester пустой -> переносим в Semester
-                // ИСПРАВЛЕНИЕ: Сначала копируем значение, потом обнуляем, чтобы избежать NOT NULL ошибки
-                string migrationQuery = @"
-            UPDATE Tasks
-            SET Semester = LessonOrder
-            WHERE GroupType = 3
-              AND (LessonOrder = 1 OR LessonOrder = 2)
-              AND (Semester IS NULL OR Semester = 0)";
-
-                using (var cmd = new SqliteCommand(migrationQuery, conn))
-                {
-                    int rows = cmd.ExecuteNonQuery();
-                    if (rows > 0)
-                    {
-                        Console.WriteLine($"DB: Выполнена миграция контрольных работ. Обновлено записей: {rows}");
-
-                        // Теперь обнуляем LessonOrder только для тех записей, где Semester уже установлен
-                        string clearLessonQuery = @"
-                UPDATE Tasks
-                SET LessonOrder = NULL
-                WHERE GroupType = 3
-                  AND Semester IN (1, 2)
-                  AND LessonOrder IN (1, 2)";
-
-                        using (var clearCmd = new SqliteCommand(clearLessonQuery, conn))
-                        {
-                            clearCmd.ExecuteNonQuery();
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"DB Warning: Ошибка при миграции контрольных: {ex.Message}");
-            }
-            // -------------------------------------------------------------
+            // TODO: Требуется ручная миграция для изменения LessonOrder NOT NULL -> NULL,
+            // если база уже была заполнена.
+            // В текущей схеме createTableQuery колонка LessonOrder уже nullable (INTEGER)
 
             using var initCmd = new SqliteCommand("INSERT OR IGNORE INTO Statistics (Id) VALUES (1)", conn);
             initCmd.ExecuteNonQuery();

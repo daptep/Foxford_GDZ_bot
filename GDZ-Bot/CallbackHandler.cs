@@ -165,20 +165,7 @@ namespace FoxfordAnswersBot
                 {
                     string subject = data.Replace("admin_subj_", "");
                     MessageHandler.SetSubject(chatId, subject);
-
-                    // --- ИЗМЕНЕНИЕ 1: Проверка на предметы только с обычным уровнем ---
-                    if (subject == "Вероятность и статистика" || subject == "ОБЗР" || subject == "Физкультура")
-                    {
-                        // Автоматически ставим "Обычный" и пропускаем меню выбора уровня
-                        MessageHandler.SetLevelType(chatId, TaskLevelType.Regular);
-                        await AskGroupType(bot, chatId, messageId, "admin_group_");
-                    }
-                    else
-                    {
-                        // Для остальных показываем выбор уровня
-                        await AskLevelType(bot, chatId, messageId, "admin_level_");
-                    }
-                    // ------------------------------------------------------------------
+                    await AskLevelType(bot, chatId, messageId, "admin_level_");
                     return;
                 }
 
@@ -228,18 +215,7 @@ namespace FoxfordAnswersBot
                 {
                     string subject = data.Replace("user_subj_", "");
                     MessageHandler.SetSubject(chatId, subject);
-
-                    // --- ИЗМЕНЕНИЕ 1: То же самое для пользователя ---
-                    if (subject == "Вероятность и статистика" || subject == "ОБЗР" || subject == "Физкультура")
-                    {
-                        MessageHandler.SetLevelType(chatId, TaskLevelType.Regular);
-                        await AskGroupType(bot, chatId, messageId, "user_group_");
-                    }
-                    else
-                    {
-                        await AskLevelType(bot, chatId, messageId, "user_level_");
-                    }
-                    // ------------------------------------------------------------------
+                    await AskLevelType(bot, chatId, messageId, "user_level_");
                     return;
                 }
 
@@ -499,8 +475,8 @@ namespace FoxfordAnswersBot
                     if (state != null) state.Subject = subject;
                     else return;
 
-                        var keyboard = new InlineKeyboardMarkup(new[]
-                        {
+                    var keyboard = new InlineKeyboardMarkup(new[]
+                    {
                         new[] { InlineKeyboardButton.WithCallbackData("Обычный", "search_level_0") },
                         new[] { InlineKeyboardButton.WithCallbackData("Профильный", "search_level_1") },
                         new[] { InlineKeyboardButton.WithCallbackData("Перевернутый", "search_level_2") },
@@ -518,7 +494,7 @@ namespace FoxfordAnswersBot
                     if (state != null) state.LevelType = level;
                     else return;
 
-                        InlineKeyboardMarkup keyboard;
+                    InlineKeyboardMarkup keyboard;
 
                     // Если выбран ПЕРЕВЕРНУТЫЙ класс -> показываем Теорию и ДЗ
                     if (level == TaskLevelType.Inverted)
@@ -554,8 +530,8 @@ namespace FoxfordAnswersBot
                     if (state != null) state.GroupType = type;
                     else return;
 
-                        // Обнуляем следующие шаги
-                        state.LessonOrder = null;
+                    // Обнуляем следующие шаги
+                    state.LessonOrder = null;
                     state.Semester = null;
 
                     var keyboardBack = new InlineKeyboardMarkup(new[] { new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_level_{(int)state.LevelType!.Value}") } });
@@ -604,7 +580,7 @@ namespace FoxfordAnswersBot
                     var state = MessageHandler.GetUserSearchState(chatId)!;
                     if (state != null) state.Semester = semester;
                     else return;
-                        state.TaskOrder = null;
+                    state.TaskOrder = null;
 
                     var taskOrders = DatabaseHelper.GetTaskOrders(state.Grade!.Value, state.Subject!,
                         state.LevelType!.Value, state.GroupType!.Value, null, semester);
@@ -736,7 +712,7 @@ namespace FoxfordAnswersBot
                     var state = MessageHandler.GetUserSearchState(chatId)!;
                     if (state != null) state.TaskOrder = taskOrder;
                     else return;
-                        state.Variant = null;
+                    state.Variant = null;
 
                     var variants = DatabaseHelper.GetVariants(state.Grade!.Value, state.Subject!,
                         state.LevelType!.Value, state.GroupType!.Value, state.LessonOrder!.Value, taskOrder);
@@ -780,8 +756,8 @@ namespace FoxfordAnswersBot
                     if (state != null) state.Variant = variant;
                     else return;
 
-                        var task = DatabaseHelper.SearchTasks(state.Grade, state.Subject, state.LevelType, state.GroupType,
-                                state.LessonOrder, null, state.TaskOrder, variant).FirstOrDefault();
+                    var task = DatabaseHelper.SearchTasks(state.Grade, state.Subject, state.LevelType, state.GroupType,
+                            state.LessonOrder, null, state.TaskOrder, variant).FirstOrDefault();
 
                     if (task != null)
                     {
