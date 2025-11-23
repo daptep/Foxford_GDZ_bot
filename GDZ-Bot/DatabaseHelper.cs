@@ -408,7 +408,7 @@ namespace FoxfordAnswersBot
             return GetDistinctValues<int>("TaskOrder", where);
         }
 
-        public static List<int> GetVariants(int grade, string subject, TaskLevelType levelType, TaskGroupType groupType, int lessonOrder, int taskOrder)
+        public static List<int> GetVariants(int grade, string subject, TaskLevelType levelType, TaskGroupType groupType, int? lessonOrder, int? semester, int taskOrder)
         {
             // Логика Перевернутых
             if (levelType == TaskLevelType.Inverted)
@@ -416,8 +416,16 @@ namespace FoxfordAnswersBot
                 levelType = TaskLevelType.Regular;
             }
 
-            string where = $"WHERE Grade = {grade} AND Subject = '{subject.Replace("'", "''")}' AND LevelType = {(int)levelType} AND GroupType = {(int)groupType} AND LessonOrder = {lessonOrder} AND TaskOrder = {taskOrder} AND IsModerated = 1";
-            return GetDistinctValues<int>("Variant", where);
+            if (groupType == TaskGroupType.ControlWork)
+            {
+                string where = $"WHERE Grade = {grade} AND Subject = '{subject.Replace("'", "''")}' AND LevelType = {(int)levelType} AND GroupType = {(int)groupType} AND Semester = {semester} AND TaskOrder = {taskOrder} AND IsModerated = 1";
+                return GetDistinctValues<int>("Variant", where);
+            }
+            else
+            {
+                string where = $"WHERE Grade = {grade} AND Subject = '{subject.Replace("'", "''")}' AND LevelType = {(int)levelType} AND GroupType = {(int)groupType} AND LessonOrder = {lessonOrder} AND TaskOrder = {taskOrder} AND IsModerated = 1";
+                return GetDistinctValues<int>("Variant", where);
+            }
         }
 
         private static List<T> GetDistinctValues<T>(string column, string whereClause = "")

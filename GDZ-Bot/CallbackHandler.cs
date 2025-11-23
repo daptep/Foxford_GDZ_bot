@@ -714,7 +714,7 @@ namespace FoxfordAnswersBot
                     state.Variant = null;
 
                     var variants = DatabaseHelper.GetVariants(state.Grade!.Value, state.Subject!,
-                        state.LevelType!.Value, state.GroupType!.Value, state.LessonOrder!.Value, taskOrder);
+                        state.LevelType!.Value, state.GroupType!.Value, state.LessonOrder!.Value, null, taskOrder);
 
                     var keyboardBack = new InlineKeyboardMarkup(new[] { new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_lesson_{state.LessonOrder}") } });
 
@@ -929,7 +929,7 @@ https://foxford.ru/lessons/475003/tasks/301386";
                 // Получаем все Задания этого Урока
                 var allTaskOrders = DatabaseHelper.GetTaskOrders(task.Grade, task.Subject, task.LevelType, task.GroupType, task.LessonOrder, null);
                 // Получаем все Варианты этого Задания
-                var allVariants = DatabaseHelper.GetVariants(task.Grade, task.Subject, task.LevelType, task.GroupType, task.LessonOrder!.Value, task.TaskOrder!.Value);
+                var allVariants = DatabaseHelper.GetVariants(task.Grade, task.Subject, task.LevelType, task.GroupType, task.LessonOrder!.Value, null, task.TaskOrder!.Value);
 
                 int currentTaskOrderIndex = allTaskOrders.IndexOf(task.TaskOrder!.Value);
                 int currentVariantIndex = allVariants.IndexOf(task.Variant!.Value);
@@ -953,8 +953,8 @@ https://foxford.ru/lessons/475003/tasks/301386";
                 if (currentTaskOrderIndex < allTaskOrders.Count - 1)
                     navigationButtons.Add(InlineKeyboardButton.WithCallbackData("➡️ След. Зад.", $"search_taskorder_{allTaskOrders[currentTaskOrderIndex + 1]}"));
             }
-            // --- 2.2 Логика для Демо и КР (Навигация по Заданиям) ---
-            else if (task.GroupType == TaskGroupType.ControlWork || task.GroupType == TaskGroupType.Demo)
+            // --- 2.2 Логика для Демо (Навигация по Заданиям) ---
+            else if (task.GroupType == TaskGroupType.Demo)
             {
                 var allTasks = DatabaseHelper.SearchTasks(task.Grade, task.Subject, task.LevelType, task.GroupType, null, task.Semester).OrderBy(t => t.TaskOrder).ToList();
                 int currentIndex = allTasks.FindIndex(t => t.Id == taskId);
@@ -968,6 +968,36 @@ https://foxford.ru/lessons/475003/tasks/301386";
 
                 if (currentIndex < allTasks.Count - 1)
                     navigationButtons.Add(InlineKeyboardButton.WithCallbackData("➡️ Дальше", $"show_task_{allTasks[currentIndex + 1].Id}"));
+            }
+            // --- 2.2 Логика для КР (Навигация по Заданиям) ---
+            else if (task.GroupType == TaskGroupType.ControlWork)
+            {
+                // Получаем все Задания этого Урока
+                var allTaskOrders = DatabaseHelper.GetTaskOrders(task.Grade, task.Subject, task.LevelType, task.GroupType, null, task.Semester);
+                // Получаем все Варианты этого Задания
+                var allVariants = DatabaseHelper.GetVariants(task.Grade, task.Subject, task.LevelType, task.GroupType, null, task.Semester, task.TaskOrder!.Value);
+
+                int currentTaskOrderIndex = allTaskOrders.IndexOf(task.TaskOrder!.Value);
+                int currentVariantIndex = allVariants.IndexOf(task.Variant!.Value);
+
+                header += $"\n📊 Задание {currentTaskOrderIndex + 1} из {allTaskOrders.Count} | Вариант {currentVariantIndex + 1} из {allVariants.Count}";
+
+                // Кнопка "Пред. Задание"
+                if (currentTaskOrderIndex > 0)
+                    navigationButtons.Add(InlineKeyboardButton.WithCallbackData("⬅️ Пред. Зад.", $"search_taskorder_{allTaskOrders[currentTaskOrderIndex - 1]}"));
+                // Кнопка "Пред. Вариант"
+                if (currentVariantIndex > 0)
+                    navigationButtons.Add(InlineKeyboardButton.WithCallbackData("◀️ Пред. Вар.", $"search_variant_{allVariants[currentVariantIndex - 1]}"));
+
+                // Кнопка "К Списку" (возврат к списку заданий)
+                navigationButtons.Add(InlineKeyboardButton.WithCallbackData("📋 К списку", $"search_lesson_{task.LessonOrder}"));
+
+                // Кнопка "След. Вариант"
+                if (currentVariantIndex < allVariants.Count - 1)
+                    navigationButtons.Add(InlineKeyboardButton.WithCallbackData("▶️ След. Вар.", $"search_variant_{allVariants[currentVariantIndex + 1]}"));
+                // Кнопка "След. Задание"
+                if (currentTaskOrderIndex < allTaskOrders.Count - 1)
+                    navigationButtons.Add(InlineKeyboardButton.WithCallbackData("➡️ След. Зад.", $"search_taskorder_{allTaskOrders[currentTaskOrderIndex + 1]}"));
             }
             // --- 2.3 Логика для ДЗ / Теории (Навигация по Заданиям и Урокам) ---
             else
