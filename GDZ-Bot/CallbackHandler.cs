@@ -593,7 +593,6 @@ namespace FoxfordAnswersBot
                         return;
                     }
 
-                    // Для Демо сразу показываем ответы
                     var tasks = DatabaseHelper.SearchTasks(state.Grade, state.Subject, state.LevelType, state.GroupType,
                                                             null, semester);
 

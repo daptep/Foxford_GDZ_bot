@@ -397,7 +397,7 @@ namespace FoxfordAnswersBot
                 levelType = TaskLevelType.Regular;
             }
 
-            if (groupType == TaskGroupType.Demo)
+            if (groupType == TaskGroupType.Demo || groupType == TaskGroupType.ControlWork)
             {
                 where = $"WHERE Grade = {grade} AND Subject = '{subject.Replace("'", "''")}' AND LevelType = {(int)levelType} AND GroupType = {(int)groupType} AND Semester = {semester} AND IsModerated = 1";
             }
