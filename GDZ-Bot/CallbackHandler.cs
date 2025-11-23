@@ -182,7 +182,7 @@ namespace FoxfordAnswersBot
                     var type = (TaskGroupType)int.Parse(data.Replace("admin_group_", ""));
                     MessageHandler.SetGroupType(chatId, type);
 
-                    if (type == TaskGroupType.Demo)
+                    if (type == TaskGroupType.Demo || type == TaskGroupType.ControlWork)
                     {
                         await EditMessageTextSafe(bot, chatId, messageId, "🔢 Введи полугодие (1 или 2):");
                     }
@@ -232,7 +232,7 @@ namespace FoxfordAnswersBot
                     var type = (TaskGroupType)int.Parse(data.Replace("user_group_", ""));
                     MessageHandler.SetGroupType(chatId, type);
 
-                    if (type == TaskGroupType.Demo)
+                    if (type == TaskGroupType.Demo || type == TaskGroupType.ControlWork)
                     {
                         await EditMessageTextSafe(bot, chatId, messageId, "🔢 Введи полугодие (1 или 2):");
                     }
@@ -537,7 +537,7 @@ namespace FoxfordAnswersBot
                     var keyboardBack = new InlineKeyboardMarkup(new[] { new[] { InlineKeyboardButton.WithCallbackData("◀️ Назад", $"search_level_{(int)state.LevelType!.Value}") } });
 
                     // --- Логика для ДЕМО ---
-                    if (type == TaskGroupType.Demo)
+                    if (type == TaskGroupType.Demo || type == TaskGroupType.ControlWork)
                     {
                         var semesters = DatabaseHelper.GetSemesters(state.Grade!.Value, state.Subject!, state.LevelType!.Value);
                         if (semesters.Count == 0)
@@ -553,7 +553,7 @@ namespace FoxfordAnswersBot
 
                         await EditMessageTextSafe(bot, chatId, messageId, "📖 Выбери полугодие:", new InlineKeyboardMarkup(buttons));
                     }
-                    // --- Логика для Остальных (ДЗ, КР, ПР, Теория) ---
+                    // --- Логика для Остальных (ДЗ, ПР, Теория) ---
                     else
                     {
                         var lessons = DatabaseHelper.GetLessonOrders(state.Grade!.Value, state.Subject!, state.LevelType!.Value, type);
