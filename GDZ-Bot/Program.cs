@@ -11,9 +11,9 @@ namespace FoxfordAnswersBot
     class Program
     {
         // Убедись, что токен и ID здесь правильные, или ты читаешь их из файла
-        public static string BOT_TOKEN = "8558881398:AAGvC6haknvCSqq4siPbdavp1g5_xUsOUyY";
+        public static string BOT_TOKEN = "8558881398:AAHntUZUVf2jST5uNqW1i3FpEn-lG9mBQpU";
         public static long ADMIN_ID = 1283430447;
-        public static string CODE_VERSION = "0.1.45";
+        public static string CODE_VERSION = "0.1.55";
 
         private static TelegramBotClient? botClient;
 
