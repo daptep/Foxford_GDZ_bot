@@ -788,7 +788,7 @@ namespace FoxfordAnswersBot
                     {
                         new[] { InlineKeyboardButton.WithCallbackData("🔍 Поиск ответов", "search_start") },
                         new[] { InlineKeyboardButton.WithCallbackData("📥 Предложить задание", "user_add_start") },
-                        new[] { InlineKeyboardButton.WithCallbackData("💵 Поддержать проект", "donat_start") }
+                        new[] { InlineKeyboardButton.WithUrl("🛜 Foxford VPN", @"t.me\foxford_vpn_bot") }
                     };
 
                     if (chatId == adminId)
