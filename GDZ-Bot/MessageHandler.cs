@@ -119,10 +119,8 @@ namespace FoxfordAnswersBot
 
                     if (adminActionStates.ContainsKey(chatId))
                     {
-                        state = adminActionStates[chatId];
-
                         // А) Админ прислал контент для рассылки
-                        if (state == "awaiting_promo_content")
+                        if (adminActionStates[chatId] == "awaiting_promo_content")
                         {
                             // Сохраняем сообщение как черновик
                             promoDrafts[chatId] = message;
