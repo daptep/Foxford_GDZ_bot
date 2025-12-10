@@ -93,11 +93,13 @@ namespace FoxfordAnswersBot
                 if (chatId == adminId && adminActionStates.ContainsKey(chatId))
                 {
                     string state = adminActionStates[chatId];
-                    adminActionStates.Remove(chatId); // Сбрасываем состояние после 1-го сообщения
+                    // УБРАЛИ: adminActionStates.Remove(chatId); — Нельзя удалять состояние сразу!
 
                     // 1. Ожидание ID для УДАЛЕНИЯ
                     if (state == "awaiting_delete_id")
                     {
+                        adminActionStates.Remove(chatId); // Удаляем только после обработки
+
                         if (int.TryParse(text, out int idToDelete))
                         {
                             if (DatabaseHelper.DeleteTask(idToDelete))
@@ -113,70 +115,70 @@ namespace FoxfordAnswersBot
                         {
                             await bot.SendMessage(chatId, "❌ Это не ID. Действие отменено.");
                         }
-                        await ShowAdminPanel(bot, chatId); // Возвращаемся в админку
+                        await ShowAdminPanel(bot, chatId);
                         return;
                     }
 
-                    if (adminActionStates.ContainsKey(chatId))
+                    // А) Админ прислал контент для рассылки
+                    // Используем переменную state, а не лезем снова в словарь
+                    if (state == "awaiting_promo_content")
                     {
-                        // А) Админ прислал контент для рассылки
-                        if (adminActionStates[chatId] == "awaiting_promo_content")
+                        // Сохраняем сообщение как черновик
+                        promoDrafts[chatId] = message;
+
+                        // Меняем состояние на подтверждение (НЕ удаляем, а обновляем)
+                        adminActionStates[chatId] = "awaiting_promo_confirm";
+
+                        await bot.SendMessage(chatId, "👁 <b>Предпросмотр:</b>\nВот так будет выглядеть сообщение. Рассылаем?", parseMode: ParseMode.Html);
+
+                        // Копируем сообщение админу
+                        try
                         {
-                            // Сохраняем сообщение как черновик
-                            promoDrafts[chatId] = message;
+                            await bot.CopyMessage(chatId, chatId, message.MessageId);
+                        }
+                        catch
+                        {
+                            await bot.SendMessage(chatId, "❌ Ошибка предпросмотра (неподдерживаемый тип), но отправить попробую.");
+                        }
 
-                            // Меняем состояние на подтверждение
-                            adminActionStates[chatId] = "awaiting_promo_confirm";
+                        // Клавиатура подтверждения
+                        var keyboard = new InlineKeyboardMarkup(new[]
+                        {
+                            new[] { InlineKeyboardButton.WithCallbackData("🚀 Отправить всем", "promo_send") },
+                            new[] { InlineKeyboardButton.WithCallbackData("❌ Отмена", "promo_cancel") }
+                        });
 
-                            await bot.SendMessage(chatId, "👁 <b>Предпросмотр:</b>\nВот так будет выглядеть сообщение. Рассылаем?", parseMode: ParseMode.Html);
+                        await bot.SendMessage(chatId, "Подтверди действие:", replyMarkup: keyboard);
+                        return;
+                    }
 
-                            // Копируем сообщение админу, чтобы он проверил вид
-                            try
-                            {
-                                await bot.CopyMessage(chatId, chatId, message.MessageId);
-                            }
-                            catch
-                            {
-                                await bot.SendMessage(chatId, "❌ Ошибка предпросмотра (неподдерживаемый тип), но отправить попробую.");
-                            }
-
-                            // Клавиатура подтверждения
-                            var keyboard = new InlineKeyboardMarkup(new[]
-                            {
-                new[] { InlineKeyboardButton.WithCallbackData("🚀 Отправить всем", "promo_send") },
-                new[] { InlineKeyboardButton.WithCallbackData("❌ Отмена", "promo_cancel") }
-            });
-
-                            await bot.SendMessage(chatId, "Подтверди действие:", replyMarkup: keyboard);
+                    // Б) Если мы ждем подтверждения, а админ пишет текст (игнорируя кнопки)
+                    if (state == "awaiting_promo_confirm")
+                    {
+                        if (text == "/cancel")
+                        {
+                            adminActionStates.Remove(chatId);
+                            promoDrafts.Remove(chatId);
+                            await bot.SendMessage(chatId, "❌ Рассылка отменена.");
+                            await ShowAdminPanel(bot, chatId);
                             return;
                         }
-
-                        // Б) Если мы ждем подтверждения, а админ пишет текст (игнорируя кнопки)
-                        if (state == "awaiting_promo_confirm")
-                        {
-                            // Можно просто игнорировать или напомнить про кнопки, 
-                            // но для удобства дадим возможность отмены текстом
-                            if (text == "/cancel")
-                            {
-                                adminActionStates.Remove(chatId);
-                                promoDrafts.Remove(chatId);
-                                await bot.SendMessage(chatId, "❌ Рассылка отменена.");
-                                await ShowAdminPanel(bot, chatId);
-                                return;
-                            }
-                        }
+                        // Если пишут что-то другое — игнорируем или повторяем просьбу нажать кнопку
+                        return;
                     }
 
                     // 2. Ожидание подтверждения "foxford" для ЗАМЕНЫ БД
                     if (state == "awaiting_db_replace_confirm_text")
                     {
+                        // Тут удаляем старое состояние или меняем на новое
                         if (text.Trim().ToLower() == "foxford")
                         {
-                            adminActionStates[chatId] = "awaiting_db_file"; // Устанавливаем новое состояние
+                            adminActionStates[chatId] = "awaiting_db_file"; // Меняем состояние
                             await bot.SendMessage(chatId, "✅ Подтверждение получено. Теперь отправь мне файл `.db` для замены.");
                         }
                         else
                         {
+                            adminActionStates.Remove(chatId); // Удаляем, так как отмена
                             await bot.SendMessage(chatId, "❌ Неверное слово. Замена БД отменена.");
                             await ShowAdminPanel(bot, chatId);
                         }
