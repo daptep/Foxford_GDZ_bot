@@ -54,6 +54,14 @@ namespace FoxfordAnswersBot
                     return;
                 }
 
+                if (callback.Data.StartsWith("promo_"))
+                {
+                    await MessageHandler.HandlePromoAction(bot, callback.Message.Chat.Id, callback.Data);
+                    // Не забудь ответить на коллбэк, чтобы часики пропали
+                    await bot.AnswerCallbackQuery(callback.Id);
+                    return;
+                }
+
                 // --- Модерация (Админ) ---
                 if (data == "admin_moderate" && chatId == adminId)
                 {
@@ -152,6 +160,7 @@ namespace FoxfordAnswersBot
                     await AskGrade(bot, chatId, "admin_grade_");
                     return;
                 }
+
 
                 // --- Шаги добавления (Админ) ---
                 if (data.StartsWith("admin_grade_") && chatId == adminId)

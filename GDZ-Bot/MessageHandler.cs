@@ -18,6 +18,9 @@ namespace FoxfordAnswersBot
         private static Dictionary<long, UserSubmissionState> userSubmissionStates = new Dictionary<long, UserSubmissionState>();
         private static Dictionary<long, UserSearchState> userStates = new Dictionary<long, UserSearchState>();
 
+        // Добавь это к полям класса MessageHandler
+        private static Dictionary<long, Message> promoDrafts = new Dictionary<long, Message>();
+
         public static Dictionary<long, string> adminActionStates = new Dictionary<long, string>();
 
         // Список предметов (для кнопок)
@@ -44,6 +47,17 @@ namespace FoxfordAnswersBot
                     CancelSubmission(chatId);
                     ClearUserSearchState(chatId);
                     await HandleStart(bot, chatId, adminId);
+                    return;
+                }
+
+                if (text == "/promo")
+                {
+                    adminActionStates[chatId] = "awaiting_promo_content"; // Устанавливаем состояние
+                    await bot.SendMessage(chatId,
+                        "📢 <b>Режим рассылки</b>\n\n" +
+                        "Отправь сообщение (текст, фото или видео), которое нужно разослать всем пользователям.\n" +
+                        "Можно использовать форматирование.",
+                        parseMode: ParseMode.Html);
                     return;
                 }
 
@@ -101,6 +115,58 @@ namespace FoxfordAnswersBot
                         }
                         await ShowAdminPanel(bot, chatId); // Возвращаемся в админку
                         return;
+                    }
+
+                    if (adminActionStates.ContainsKey(chatId))
+                    {
+                        state = adminActionStates[chatId];
+
+                        // А) Админ прислал контент для рассылки
+                        if (state == "awaiting_promo_content")
+                        {
+                            // Сохраняем сообщение как черновик
+                            promoDrafts[chatId] = message;
+
+                            // Меняем состояние на подтверждение
+                            adminActionStates[chatId] = "awaiting_promo_confirm";
+
+                            await bot.SendMessage(chatId, "👁 <b>Предпросмотр:</b>\nВот так будет выглядеть сообщение. Рассылаем?", parseMode: ParseMode.Html);
+
+                            // Копируем сообщение админу, чтобы он проверил вид
+                            try
+                            {
+                                await bot.CopyMessage(chatId, chatId, message.MessageId);
+                            }
+                            catch
+                            {
+                                await bot.SendMessage(chatId, "❌ Ошибка предпросмотра (неподдерживаемый тип), но отправить попробую.");
+                            }
+
+                            // Клавиатура подтверждения
+                            var keyboard = new InlineKeyboardMarkup(new[]
+                            {
+                new[] { InlineKeyboardButton.WithCallbackData("🚀 Отправить всем", "promo_send") },
+                new[] { InlineKeyboardButton.WithCallbackData("❌ Отмена", "promo_cancel") }
+            });
+
+                            await bot.SendMessage(chatId, "Подтверди действие:", replyMarkup: keyboard);
+                            return;
+                        }
+
+                        // Б) Если мы ждем подтверждения, а админ пишет текст (игнорируя кнопки)
+                        if (state == "awaiting_promo_confirm")
+                        {
+                            // Можно просто игнорировать или напомнить про кнопки, 
+                            // но для удобства дадим возможность отмены текстом
+                            if (text == "/cancel")
+                            {
+                                adminActionStates.Remove(chatId);
+                                promoDrafts.Remove(chatId);
+                                await bot.SendMessage(chatId, "❌ Рассылка отменена.");
+                                await ShowAdminPanel(bot, chatId);
+                                return;
+                            }
+                        }
                     }
 
                     // 2. Ожидание подтверждения "foxford" для ЗАМЕНЫ БД
@@ -382,6 +448,77 @@ https://foxford.ru/lessons/475003/tasks/301386
             });
 
             await bot.SendMessage(chatId, statsText, parseMode: ParseMode.Html, replyMarkup: keyboard);
+        }
+
+        // Метод для запуска самой рассылки (вызывать из CallbackQueryHandler)
+        public static async Task HandlePromoAction(ITelegramBotClient bot, long chatId, string action)
+        {
+            if (action == "promo_cancel")
+            {
+                adminActionStates.Remove(chatId);
+                promoDrafts.Remove(chatId);
+                await bot.SendMessage(chatId, "❌ Рассылка отменена.");
+                await ShowAdminPanel(bot, chatId);
+                return;
+            }
+
+            if (action == "promo_send")
+            {
+                if (!promoDrafts.ContainsKey(chatId))
+                {
+                    await bot.SendMessage(chatId, "❌ Ошибка: сообщение для рассылки потеряно. Начни заново /promo");
+                    return;
+                }
+
+                var messageToSend = promoDrafts[chatId];
+                var users = DatabaseHelper.GetAllUsersIds();
+
+                await bot.SendMessage(chatId, $"🚀 Начинаю рассылку на {users.Count} пользователей...");
+
+                // Сброс состояний
+                adminActionStates.Remove(chatId);
+                promoDrafts.Remove(chatId);
+
+                // --- ЛОГИКА РАССЫЛКИ (Асинхронно, чтобы не блокировать бота) ---
+                _ = Task.Run(async () =>
+                {
+                    int success = 0;
+                    int blocked = 0;
+                    int error = 0;
+
+                    foreach (var userId in users)
+                    {
+                        try
+                        {
+                            // CopyMessage идеален: он копирует текст, картинки, видео и разметку
+                            await bot.CopyMessage(userId, messageToSend.Chat.Id, messageToSend.MessageId);
+                            success++;
+                        }
+                        catch (Telegram.Bot.Exceptions.ApiRequestException ex)
+                        {
+                            // Код 403 означает, что пользователь заблокировал бота
+                            if (ex.ErrorCode == 403)
+                                blocked++;
+                            else
+                                error++;
+                        }
+                        catch
+                        {
+                            error++;
+                        }
+
+                        // КРИТИЧНО: Задержка, чтобы Телеграм не забанил бота за спам (30 сообщений в секунду лимит)
+                        await Task.Delay(50);
+                    }
+
+                    await bot.SendMessage(chatId,
+                        $"✅ <b>Рассылка завершена!</b>\n\n" +
+                        $"📨 Успешно: {success}\n" +
+                        $"🚫 Бот заблокирован: {blocked}\n" +
+                        $"⚠️ Ошибки: {error}",
+                        parseMode: ParseMode.Html);
+                });
+            }
         }
 
         // --- НОВЫЙ МЕТОД: Обработка загрузки БД (ИСПРАВЛЕН) ---

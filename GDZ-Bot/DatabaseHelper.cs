@@ -513,6 +513,25 @@ namespace FoxfordAnswersBot
             return stats;
         }
 
+        public static List<long> GetAllUsersIds()
+        {
+            using var conn = new SqliteConnection(ConnectionString);
+            conn.Open();
+
+            var ids = new List<long>();
+            string query = "SELECT UserId FROM Users";
+
+            using var cmd = new SqliteCommand(query, conn);
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                ids.Add(reader.GetInt64(0));
+            }
+
+            return ids;
+        }
+
         public static List<FoxfordTask> GetTasksForModeration()
         {
             using var conn = new SqliteConnection(ConnectionString);
